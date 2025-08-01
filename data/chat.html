@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+	<style type="text/css">
+		main {
+			display: flex;
+			justify-content: center;
+		}
+
+		.container {
+			text-align: center;
+			border: 1px dashed gray;
+			padding: 5px;
+			width: 250px;
+			border-radius: 10px;
+		}
+
+		#history-box {
+			margin-right: 10px;
+			margin-left: 10px;
+		}
+
+		.message-history {
+			border-radius: 10px;
+			padding: 5px;
+			height: 20px;
+		}
+
+		.outgoing {
+			text-align: right;
+			background-color: lightblue;
+		}
+
+		.incoming {
+			text-align: left;
+			background-color: lightgreen;
+		}
+	</style>
+
+	<head>
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+	</head>
+
+	<main>
+		<div class="container">
+			<div id="history-box">
+				<p class="message-history"></p>
+				<p class="message-history"></p>
+				<p class="message-history"></p>
+				<p class="message-history"></p>
+				<p class="message-history"></p>
+				<p class="message-history"></p>
+			</div>
+			<div>
+				<input type="text" id="message-text">
+				<input type="button" value="Send" id="send-button">
+			</div>
+		</div>
+	</main>
+
+	<script type="text/javascript">
+		const ip = window.location.hostname;
+		let webSocket;
+
+		window.addEventListener("load", async function () {
+			webSocket = initWebSocketConnection(ip);
+		});
+
+		function initWebSocketConnection(_ip) {
+			console.log("Initiating WebSocket connection...");
+			webSocket = new WebSocket("ws://" + String(_ip) + "/ws");
+			webSocket.onopen = handleWebSocketOpen;
+			webSocket.onclose = handleWebSocketClose;
+			webSocket.onerror = handleWebSocketError;
+			webSocket.onmessage = handleWebSockeMessage;
+
+			return webSocket;
+		}
+
+		function handleWebSocketOpen() {
+			console.log("WebSocket connection opened!");
+		}
+
+        function handleWebSocketClose() {
+            console.log("WebSocket connection closed.");
+        	webSocket = initWebSocketConnection(ip);
+		}
+
+        function handleWebSocketError(error) {
+            console.log("WebSocket connection error:", error);
+        }
+
+        function handleWebSockeMessage(event) {
+            const message = event.data;
+			appendHistory(message, "incoming");
+            console.log("Got something: " + String(message));
+        }
+
+		const messageText = document.getElementById("message-text");
+		const sendButton = document.getElementById("send-button");
+		const historyBox = document.getElementById("history-box");
+
+		const history = historyBox.children;
+		const historyLength = history.length - 1;
+
+		let messageCount = 0;
+
+		function appendHistory(text, type) {
+			for (let i = 0; i <= historyLength - 1; i++) {
+				history[i].textContent = history[i+1].textContent;
+				const messageType = history[i+1].classList[1];
+				if (messageType !== undefined) {
+					history[i].classList.remove("incoming");
+					history[i].classList.remove("outgoing");
+					history[i].classList.add(messageType); 
+				}
+			}
+
+			history[historyLength].textContent = text;
+			history[historyLength].classList.remove("incoming");
+			history[historyLength].classList.remove("outgoing");
+			history[historyLength].classList.add(type);
+
+			if (messageCount < historyLength) {
+				messageCount += 1;
+			} else {
+				messageCount = 0;
+			}
+		}
+
+		sendButton.addEventListener("click", function () {
+			const text = messageText.value;
+
+			messageText.value = "";
+
+			if (text === "\\clear") {
+				for (let i = 0; i <= historyLength; i++) {
+					history[i].textContent = "";
+					history[i].classList.remove("incoming");
+					history[i].classList.remove("outgoing");
+				}
+				return;
+			}
+
+			appendHistory(text, "outgoing");
+
+			webSocket.send(text);
+		});
+	</script>
+
+</html>
